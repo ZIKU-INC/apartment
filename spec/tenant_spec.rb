@@ -7,7 +7,7 @@ describe Apartment::Tenant do
     before { subject.reload!(config) }
 
     describe '#adapter' do
-      it 'should load mysql adapter' do
+      it 'loads mysql adapter' do
         subject.adapter
         expect(Apartment::Adapters::Mysql2Adapter).to be_a(Class)
       end
@@ -31,7 +31,7 @@ describe Apartment::Tenant do
           nil
         end
 
-        it 'should create a new database' do
+        it 'creates a new database' do
           subject.create 'db_with_prefix'
         end
       end
@@ -45,7 +45,7 @@ describe Apartment::Tenant do
     end
 
     describe '#adapter' do
-      it 'should load postgresql adapter' do
+      it 'loads postgresql adapter' do
         expect(subject.adapter).to be_a(Apartment::Adapters::PostgresqlSchemaAdapter)
       end
 
@@ -68,6 +68,14 @@ describe Apartment::Tenant do
           thread.join
           expect(subject.current).to eq(db1)
         end
+
+        it 'maintains the current tenant across fibers within a thread' do
+          subject.switch!(db1)
+          expect(subject.current).to eq(db1)
+          fiber = Fiber.new { expect(subject.current).to eq(db1) }
+          fiber.resume
+          expect(subject.current).to eq(db1)
+        end
       end
     end
 
@@ -85,7 +93,7 @@ describe Apartment::Tenant do
       after { subject.drop db1 }
 
       describe '#create' do
-        it 'should seed data' do
+        it 'seeds data' do
           subject.switch! db1
           expect(User.count).to be > 0
         end
@@ -99,7 +107,7 @@ describe Apartment::Tenant do
 
           after { subject.drop db2 }
 
-          it 'should create a model instance in the current schema' do
+          it 'creates a model instance in the current schema' do
             subject.switch! db2
             db2_count = User.count + x.times { User.create }
 
@@ -130,7 +138,7 @@ describe Apartment::Tenant do
             end
           end
 
-          it 'should create excluded models in public schema' do
+          it 'creates excluded models in public schema' do
             subject.reset # ensure we're on public schema
             count = Company.count + x.times { Company.create }
 
@@ -155,14 +163,14 @@ describe Apartment::Tenant do
 
       after { subject.drop db1 }
 
-      it 'should seed from default path' do
+      it 'seeds from default path' do
         subject.create db1
         subject.switch! db1
         expect(User.count).to eq(3)
         expect(User.first.name).to eq('Some User 0')
       end
 
-      it 'should seed from custom path' do
+      it 'seeds from custom path' do
         Apartment.configure do |config|
           config.seed_data_file = Rails.root.join('db/seeds/import.rb')
         end
